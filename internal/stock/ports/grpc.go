@@ -4,9 +4,11 @@ import (
 	context "context"
 
 	"github.com/QMEOWQ/go-microservice-proj/common/genproto/stockpb"
+	"github.com/QMEOWQ/go-microservice-proj/stock/app"
 )
 
 type GRPCServer struct {
+	app app.Application
 }
 
 func NewGRPCServer() *GRPCServer {
@@ -14,11 +16,11 @@ func NewGRPCServer() *GRPCServer {
 }
 
 func (G GRPCServer) GetItems(ctx context.Context, request *stockpb.GetItemsRequest) (*stockpb.GetItemsResponse, error) {
-	//TODO 
+	//TODO
 	panic("not implemented yet")
 }
 
 func (G GRPCServer) CheckIfItemsInStock(ctx context.Context, request *stockpb.CheckIfItemsInStockRequest) (*stockpb.CheckIfItemsInStockResponse, error) {
-	//TODO 
+	//TODO
 	panic("not implemented yet")
 }
