@@ -1,7 +1,5 @@
-module github.com/QMEOWQ/go-microservice-proj
+module github.com/QMEOWQ/go-microservice-proj/kitchen
 
-go 1.23.1
+go 1.24.3
 
-replace (
-    github.com/QMEOWQ/go-microservice-proj/common => ../common
-)
+replace github.com/QMEOWQ/go-microservice-proj/common => ../common
