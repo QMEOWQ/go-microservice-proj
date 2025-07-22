@@ -20,10 +20,17 @@
 # Go workspace file
 go.work
 go.work.sum
+.DS_Store
 
 # env file
 .env
 .idea
+
+# air.toml
+**/tmp/
+**/bin/
+
+.gobincache/
 
 # go_miserver proj
 images/
