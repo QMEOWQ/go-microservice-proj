@@ -5,11 +5,13 @@ import (
 	"log"
 
 	"github.com/QMEOWQ/go-microservice-proj/common/config"
+	"github.com/QMEOWQ/go-microservice-proj/common/discovery"
 	"github.com/QMEOWQ/go-microservice-proj/common/genproto/orderpb"
 	"github.com/QMEOWQ/go-microservice-proj/common/server"
 	"github.com/QMEOWQ/go-microservice-proj/order/ports"
 	"github.com/QMEOWQ/go-microservice-proj/order/service"
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 )
@@ -27,7 +29,16 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	application := service.NewApplication(ctx)
+	application, cleanup := service.NewApplication(ctx)
+	defer cleanup() // 在主函数退出时，关闭所有连接
+
+	deregisterFunc, err := discovery.RegisterToConsul(ctx, serviceName)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	defer func() {
+		_ = deregisterFunc()
+	}()
 
 	go server.RunGRPCServer(serviceName, func(server *grpc.Server) {
 		svc := ports.NewGRPCServer(application)

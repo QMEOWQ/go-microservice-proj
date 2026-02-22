@@ -1,3 +1,5 @@
+api preview addons: swagger preview
+
 go mod init github.com/QMEOWQ/go-microservice-proj/dir
 
 replace github.com/QMEOWQ/go-microservice-proj/common => ../common
@@ -49,3 +51,12 @@ cleaning...
 Process Exit with Code: 1
 see you again~
 ```
+
+cd internal/order
+go run .
+
+curl 'http://127.0.0.1:8282/api/customer/fake-customer-id/orders/fake-ID'
+
+lesson9:
+使用apifox测试后得到order_id
+curl 'http://127.0.0.1:8282/api/customer/your-customer-id/orders/order-id-from-apifox'

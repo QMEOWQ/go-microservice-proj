@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/QMEOWQ/go-microservice-proj/common/config"
+	"github.com/QMEOWQ/go-microservice-proj/common/discovery"
 	"github.com/QMEOWQ/go-microservice-proj/common/genproto/stockpb"
 	"github.com/QMEOWQ/go-microservice-proj/common/server"
 	"github.com/QMEOWQ/go-microservice-proj/stock/ports"
@@ -29,6 +30,14 @@ func main() {
 	defer cancel()
 
 	application := service.NewApplication(ctx)
+
+	deregisterFunc, err := discovery.RegisterToConsul(ctx, serviceName)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	defer func() {
+		_ = deregisterFunc()
+	}()
 
 	switch serverType {
 	case "grpc":
