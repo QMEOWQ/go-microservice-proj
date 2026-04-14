@@ -9,6 +9,7 @@ import (
 	"github.com/QMEOWQ/go-microservice-proj/order/app"
 	"github.com/QMEOWQ/go-microservice-proj/order/app/command"
 	"github.com/QMEOWQ/go-microservice-proj/order/app/query"
+	"github.com/QMEOWQ/go-microservice-proj/order/convertor"
 	"github.com/gin-gonic/gin"
 )
 
@@ -27,7 +28,7 @@ func (H HTTPServer) PostCustomerCustomerIDOrders(c *gin.Context, customerID stri
 	}
 	r, err := H.app.Commands.CreateOrder.Handle(c, command.CreateOrder{
 		CustomerID: req.CustomerID,
-		Items:      req.Items,
+		Items:      convertor.NewItemWithQuantityConvertor().ClientsToEntities(req.Items),
 	})
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"error": err})
