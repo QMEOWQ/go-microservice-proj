@@ -19,6 +19,16 @@ type HTTPServer struct {
 	common.BaseResponse
 }
 
+// GetCustomerCustomerIdOrdersOrderId implements [ports.ServerInterface].
+func (H HTTPServer) GetCustomerCustomerIdOrdersOrderId(c *gin.Context, customerId string, orderId string) {
+	panic("unimplemented")
+}
+
+// PostCustomerCustomerIdOrders implements [ports.ServerInterface].
+func (H HTTPServer) PostCustomerCustomerIdOrders(c *gin.Context, customerId string) {
+	panic("unimplemented")
+}
+
 func (H HTTPServer) PostCustomerCustomerIDOrders(c *gin.Context, customerID string) {
 	_, span := tracing.Start(c, "PostCustomerCustomerIDOrders")
 	defer span.End()
