@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 
-	"github.com/QMEOWQ/go-microservice-proj/common/genproto/orderpb"
+	client "github.com/QMEOWQ/go-microservice-proj/common/client/order"
+	"github.com/QMEOWQ/go-microservice-proj/common/tracing"
 	"github.com/QMEOWQ/go-microservice-proj/order/app"
 	"github.com/QMEOWQ/go-microservice-proj/order/app/command"
 	"github.com/QMEOWQ/go-microservice-proj/order/app/query"
@@ -15,7 +17,10 @@ type HTTPServer struct {
 }
 
 func (H HTTPServer) PostCustomerCustomerIDOrders(c *gin.Context, customerID string) {
-	var req orderpb.CreateOrderRequest
+	ctx, span := tracing.Start(c, "PostCustomerCustomerIDOrders")
+	defer span.End()
+
+	var req client.CreateOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -29,13 +34,18 @@ func (H HTTPServer) PostCustomerCustomerIDOrders(c *gin.Context, customerID stri
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"message":     "success",
-		"customer_id": req.CustomerID,
-		"order_id":    r.OrderID,
+		"message":      "success",
+		"trace_id":     tracing.TraceID(ctx),
+		"customer_id":  req.CustomerID,
+		"order_id":     r.OrderID,
+		"redirect_url": fmt.Sprintf("http://localhost:8282/success?customerID=%s&orderID=%s", req.CustomerID, r.OrderID),
 	})
 }
 
 func (H HTTPServer) GetCustomerCustomerIDOrdersOrderID(c *gin.Context, customerID string, orderID string) {
+	ctx, span := tracing.Start(c, "GetCustomerCustomerIDOrdersOrderID")
+	defer span.End()
+
 	o, err := H.app.Queries.GetCustomerOrder.Handle(c, query.GetCustomerOrder{
 		// OrderID:    "fake-ID",
 		// CustomerID: "fake-customer-id",
@@ -46,5 +56,11 @@ func (H HTTPServer) GetCustomerCustomerIDOrdersOrderID(c *gin.Context, customerI
 		c.JSON(http.StatusOK, gin.H{"error": err})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "success", "data": o})
+	c.JSON(http.StatusOK, gin.H{
+		"message":  "success",
+		"trace_id": tracing.TraceID(ctx),
+		"data": gin.H{
+			"Order": o,
+		},
+	})
 }

@@ -2,12 +2,15 @@ package command
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
+	"github.com/QMEOWQ/go-microservice-proj/common/broker"
 	"github.com/QMEOWQ/go-microservice-proj/common/decorator"
 	"github.com/QMEOWQ/go-microservice-proj/common/genproto/orderpb"
 	"github.com/QMEOWQ/go-microservice-proj/order/app/query"
 	domain "github.com/QMEOWQ/go-microservice-proj/order/domain/order"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -25,19 +28,27 @@ type CreateOrderHandler decorator.CommandHandler[CreateOrder, *CreateOrderResult
 type createOrderHandler struct {
 	orderRepo domain.Repository
 	stockGRPC query.StockService
+	channel   *amqp.Channel
 }
 
 func NewCreateOrderHandler(
 	orderRepo domain.Repository,
 	stockGRPC query.StockService,
+	channel *amqp.Channel,
 	logger *logrus.Entry,
 	metricClient decorator.MetricsClient,
 ) CreateOrderHandler {
 	if orderRepo == nil {
 		panic("nil orderRepo")
 	}
+	if stockGRPC == nil {
+		panic("nil stockGRPC")
+	}
+	if channel == nil {
+		panic("nil channel")
+	}
 	return decorator.ApplyCommandDecorators[CreateOrder, *CreateOrderResult](
-		createOrderHandler{orderRepo: orderRepo, stockGRPC: stockGRPC},
+		createOrderHandler{orderRepo: orderRepo, stockGRPC: stockGRPC, channel: channel},
 		logger,
 		metricClient,
 	)
@@ -55,28 +66,26 @@ func (c createOrderHandler) Handle(ctx context.Context, cmd CreateOrder) (*Creat
 	if err != nil {
 		return nil, err
 	}
+
+	q, err := c.channel.QueueDeclare(broker.EventOrderCreated, true, false, false, false, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	marshalledOrder, err := json.Marshal(o)
+	if err != nil {
+		return nil, err
+	}
+	err = c.channel.PublishWithContext(ctx, "", q.Name, false, false, amqp.Publishing{
+		ContentType:  "application/json",
+		DeliveryMode: amqp.Persistent,
+		Body:         marshalledOrder,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return &CreateOrderResult{OrderID: o.ID}, nil
-
-	// // todo: call stock grpc to get items
-	// err := c.stockGRPC.CheckIfItemsInStock(ctx, cmd.Items)
-	// resp, err := c.stockGRPC.GetItems(ctx, []string{"test123"})
-	// logrus.Info("createOrderHandler || resp from stockGRPC.GetItems", resp)
-
-	// var stockResponse []*orderpb.Item
-	// for _, item := range cmd.Items {
-	// 	stockResponse = append(stockResponse, &orderpb.Item{
-	// 		ID:       item.ID,
-	// 		Quantity: item.Quantity,
-	// 	})
-	// }
-	// o, err := c.orderRepo.Create(ctx, &domain.Order{
-	// 	CustomerID: cmd.CustomerID,
-	// 	Items:      stockResponse,
-	// })
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// return &CreateOrderResult{OrderID: o.ID}, nil
 }
 
 func (c createOrderHandler) validate(ctx context.Context, items []*orderpb.ItemWithQuantity) ([]*orderpb.Item, error) {

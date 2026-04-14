@@ -60,3 +60,9 @@ curl 'http://127.0.0.1:8282/api/customer/fake-customer-id/orders/fake-ID'
 lesson9:
 使用apifox测试后得到order_id
 curl 'http://127.0.0.1:8282/api/customer/your-customer-id/orders/order-id-from-apifox'
+
+docker:
+consul
+rabbitmq: 默认用户和密码 guest
+
+golangci-lint run --config

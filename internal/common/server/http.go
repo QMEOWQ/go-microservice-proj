@@ -1,14 +1,17 @@
 package server
 
 import (
+	"github.com/QMEOWQ/go-microservice-proj/common/middleware"
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 func RunHTTPServer(serviceName string, wrapper func(router *gin.Engine)) {
 	addr := viper.Sub(serviceName).GetString("http-addr")
 	if addr == "" {
-		// TODO: warning log
+		panic("empty http address")
 	}
 
 	RunHTTPServerOnAddr(addr, wrapper)
@@ -16,6 +19,7 @@ func RunHTTPServer(serviceName string, wrapper func(router *gin.Engine)) {
 
 func RunHTTPServerOnAddr(addr string, wrapper func(router *gin.Engine)) {
 	apiRouter := gin.New()
+	setMiddlewares(apiRouter)
 	wrapper(apiRouter)
 
 	apiRouter.Group("/api")
@@ -26,4 +30,10 @@ func RunHTTPServerOnAddr(addr string, wrapper func(router *gin.Engine)) {
 	if err := apiRouter.Run(addr); err != nil {
 		panic(err)
 	}
+}
+
+func setMiddlewares(router *gin.Engine) {
+	router.Use(middleware.StructuredLog(logrus.NewEntry(logrus.StandardLogger())))
+	router.Use(gin.Recovery())
+	router.Use(otelgin.Middleware("default_server"))
 }

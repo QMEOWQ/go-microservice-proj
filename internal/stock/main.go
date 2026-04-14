@@ -6,7 +6,9 @@ import (
 	"github.com/QMEOWQ/go-microservice-proj/common/config"
 	"github.com/QMEOWQ/go-microservice-proj/common/discovery"
 	"github.com/QMEOWQ/go-microservice-proj/common/genproto/stockpb"
+	"github.com/QMEOWQ/go-microservice-proj/common/logging"
 	"github.com/QMEOWQ/go-microservice-proj/common/server"
+	"github.com/QMEOWQ/go-microservice-proj/common/tracing"
 	"github.com/QMEOWQ/go-microservice-proj/stock/ports"
 	"github.com/QMEOWQ/go-microservice-proj/stock/service"
 	"github.com/sirupsen/logrus"
@@ -15,6 +17,7 @@ import (
 )
 
 func init() {
+	logging.Init()
 	if err := config.NewViperConfig(); err != nil {
 		logrus.Fatal(err)
 	}
@@ -28,6 +31,12 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	shutdown, err := tracing.InitJaegerProvider(viper.GetString("jaeger.url"), serviceName)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	defer shutdown(ctx)
 
 	application := service.NewApplication(ctx)
 

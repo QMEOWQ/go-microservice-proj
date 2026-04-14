@@ -4,10 +4,14 @@ import (
 	"context"
 	"log"
 
+	"github.com/QMEOWQ/go-microservice-proj/common/broker"
 	"github.com/QMEOWQ/go-microservice-proj/common/config"
 	"github.com/QMEOWQ/go-microservice-proj/common/discovery"
 	"github.com/QMEOWQ/go-microservice-proj/common/genproto/orderpb"
+	"github.com/QMEOWQ/go-microservice-proj/common/logging"
 	"github.com/QMEOWQ/go-microservice-proj/common/server"
+	"github.com/QMEOWQ/go-microservice-proj/common/tracing"
+	"github.com/QMEOWQ/go-microservice-proj/order/infrastructure/consumer"
 	"github.com/QMEOWQ/go-microservice-proj/order/ports"
 	"github.com/QMEOWQ/go-microservice-proj/order/service"
 	"github.com/gin-gonic/gin"
@@ -17,6 +21,7 @@ import (
 )
 
 func init() {
+	logging.Init()
 	if err := config.NewViperConfig(); err != nil {
 		log.Fatal(err)
 	}
@@ -29,6 +34,12 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	shutdown, err := tracing.InitJaegerProvider(viper.GetString("jaeger.url"), serviceName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer shutdown(ctx)
+
 	application, cleanup := service.NewApplication(ctx)
 	defer cleanup() // 在主函数退出时，关闭所有连接
 
@@ -40,12 +51,25 @@ func main() {
 		_ = deregisterFunc()
 	}()
 
+	ch, closeCh := broker.Connect(
+		viper.GetString("rabbitmq.user"),
+		viper.GetString("rabbitmq.password"),
+		viper.GetString("rabbitmq.host"),
+		viper.GetString("rabbitmq.port"),
+	)
+	defer func() {
+		_ = ch.Close()
+		_ = closeCh()
+	}()
+	go consumer.NewConsumer(application).Listen(ch)
+
 	go server.RunGRPCServer(serviceName, func(server *grpc.Server) {
 		svc := ports.NewGRPCServer(application)
 		orderpb.RegisterOrderServiceServer(server, svc)
 	})
 
 	server.RunHTTPServer(serviceName, func(router *gin.Engine) {
+		router.StaticFile("/success", "../../public/success.html")
 		ports.RegisterHandlersWithOptions(router, HTTPServer{
 			app: application,
 		}, ports.GinServerOptions{
