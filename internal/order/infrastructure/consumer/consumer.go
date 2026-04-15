@@ -3,6 +3,7 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/QMEOWQ/go-microservice-proj/common/broker"
 	"github.com/QMEOWQ/go-microservice-proj/order/app"
@@ -10,6 +11,7 @@ import (
 	domain "github.com/QMEOWQ/go-microservice-proj/order/domain/order"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel"
 )
 
 type Consumer struct {
@@ -28,6 +30,11 @@ func (c *Consumer) Listen(ch *amqp.Channel) {
 		logrus.Fatal(err)
 	}
 
+	err = ch.QueueBind(q.Name, "", broker.EventOrderPaid, false, nil)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
 	msgs, err := ch.Consume(q.Name, "", false, false, false, false, nil)
 	if err != nil {
 		logrus.Warnf("fail to consume: queue=%s, err=%v", q.Name, err)
@@ -36,23 +43,33 @@ func (c *Consumer) Listen(ch *amqp.Channel) {
 	var forever chan struct{}
 	go func() {
 		for msg := range msgs {
-			c.handleMessage(msg)
+			c.handleMessage(ch, msg, q)
 		}
 	}()
 	<-forever
 }
 
-func (c *Consumer) handleMessage(msg amqp.Delivery) {
+func (c *Consumer) handleMessage(ch *amqp.Channel, msg amqp.Delivery, q amqp.Queue) {
+	ctx := broker.ExtractRabbitMQHeaders(context.Background(), msg.Headers)
+	t := otel.Tracer("rabbitmq")
+	_, span := t.Start(ctx, fmt.Sprintf("rabbitmq.%s.consume", q.Name))
+	defer span.End()
+
+	var err error
+	defer func() {
+		if err != nil {
+			_ = msg.Nack(false, false)
+		} else {
+			_ = msg.Ack(false)
+		}
+	}()
+
 	o := &domain.Order{}
 	if err := json.Unmarshal(msg.Body, o); err != nil {
-		if err := json.Unmarshal(msg.Body, o); err != nil {
-			logrus.Infof("failed to unmarshall msg to order, err=%v", err)
-			_ = msg.Nack(false, false)
-			return
-		}
+		logrus.Infof("error unmarshal msg.body into domain.order, err = %v", err)
+		return
 	}
-
-	_, err := c.app.Commands.UpdateOrder.Handle(context.Background(), command.UpdateOrder{
+	_, err = c.app.Commands.UpdateOrder.Handle(ctx, command.UpdateOrder{
 		Order: o,
 		UpdateFn: func(ctx context.Context, order *domain.Order) (*domain.Order, error) {
 			if err := order.IsPaid(); err != nil {
@@ -63,10 +80,12 @@ func (c *Consumer) handleMessage(msg amqp.Delivery) {
 	})
 	if err != nil {
 		logrus.Infof("error updating order, orderID = %s, err = %v", o.ID, err)
-		// TODO: retry
+		if err = broker.HandleRetry(ctx, ch, &msg); err != nil {
+			logrus.Warnf("retry_error, error handling retry, messageID=%s, err=%v", msg.MessageId, err)
+		}
 		return
 	}
 
-	_ = msg.Ack(false)
+	span.AddEvent("order.updated")
 	logrus.Info("order consume paid event success!")
 }

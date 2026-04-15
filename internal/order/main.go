@@ -5,7 +5,6 @@ import (
 	"log"
 
 	"github.com/QMEOWQ/go-microservice-proj/common/broker"
-	"github.com/QMEOWQ/go-microservice-proj/common/config"
 	"github.com/QMEOWQ/go-microservice-proj/common/discovery"
 	"github.com/QMEOWQ/go-microservice-proj/common/genproto/orderpb"
 	"github.com/QMEOWQ/go-microservice-proj/common/logging"
@@ -22,9 +21,6 @@ import (
 
 func init() {
 	logging.Init()
-	if err := config.NewViperConfig(); err != nil {
-		log.Fatal(err)
-	}
 }
 
 func main() {

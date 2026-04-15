@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/QMEOWQ/go-microservice-proj/common/broker"
-	"github.com/QMEOWQ/go-microservice-proj/common/config"
 	"github.com/QMEOWQ/go-microservice-proj/common/logging"
 	"github.com/QMEOWQ/go-microservice-proj/common/server"
 	"github.com/QMEOWQ/go-microservice-proj/common/tracing"
@@ -16,9 +15,6 @@ import (
 
 func init() {
 	logging.Init()
-	if err := config.NewViperConfig(); err != nil {
-		logrus.Fatal(err)
-	}
 }
 
 func main() {

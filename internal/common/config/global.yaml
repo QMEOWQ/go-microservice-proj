@@ -30,6 +30,7 @@ rabbitmq:
   password: guest
   host: 127.0.0.1
   port: 5672
+  max-retry: 3
 
 stripe-key: xxx
 endpoint-stripe-secret: xxx
