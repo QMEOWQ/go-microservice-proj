@@ -33,5 +33,7 @@ go.work.sum
 .gobincache/
 
 # go_miserver proj
+.vscode/
 images/
 bugfix.md
+PROJECT_INTERVIEW_DEEP_DIVE.md
